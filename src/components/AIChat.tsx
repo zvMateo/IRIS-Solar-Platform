@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2, Sparkles } from "lucide-react";
+import { Send, Bot, User, Loader2, Sparkles, RotateCcw } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 interface Message {
   role: "user" | "assistant";
@@ -15,36 +16,20 @@ const SUGGESTED_QUESTIONS = [
   "¿Qué instalaciones necesitan mantenimiento pronto?",
 ];
 
-const SESSION_STORAGE_KEY = "iris-chat-session-id";
-
-function getOrCreateSessionId(): string {
-  if (typeof window === "undefined") return `web-${Date.now()}`;
-
-  const existing = window.localStorage.getItem(SESSION_STORAGE_KEY);
-  if (existing) return existing;
-
-  const generated =
-    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? `web-${crypto.randomUUID()}`
-      : `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-  window.localStorage.setItem(SESSION_STORAGE_KEY, generated);
-  return generated;
-}
-
 export default function AIChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [mode, setMode] = useState<"n8n" | null>(null);
+  const [mode, setMode] = useState<"openai" | "n8n" | "fallback" | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const sendMessage = async (text: string) => {
-    if (!text.trim()) return;
+    if (!text.trim() || isLoading) return;
 
     const userMsg: Message = { role: "user", content: text.trim() };
     setMessages((prev) => [...prev, userMsg]);
@@ -55,144 +40,221 @@ export default function AIChat() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text.trim(),
-          history: messages,
-          sessionId: getOrCreateSessionId(),
-        }),
+        body: JSON.stringify({ message: text.trim(), history: messages }),
       });
 
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(
-          data?.error || data?.details || "Error en la respuesta del servidor",
-        );
-      }
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: data.response },
-      ]);
+      setMessages((prev) => [...prev, { role: "assistant", content: data.response }]);
       if (data.mode) setMode(data.mode);
-    } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            error instanceof Error
-              ? error.message
-              : "Lo siento, hubo un error al procesar tu consulta.",
-        },
-      ]);
+    } catch {
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: "Lo siento, no pude conectarme en este momento. Intentá de nuevo.",
+      }]);
     } finally {
       setIsLoading(false);
+      // Devolver foco al input (UX: el usuario sigue escribiendo)
+      setTimeout(() => inputRef.current?.focus(), 50);
     }
   };
 
+  const clearChat = () => {
+    setMessages([]);
+    setMode(null);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  const modeBadge = mode ? {
+    n8n: { label: "n8n Agent", color: "text-purple-400 bg-purple-500/10 border-purple-500/20" },
+    openai: { label: "GPT-4o", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
+    fallback: { label: "Smart Fallback", color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
+  }[mode] : null;
+
   return (
-    <div className="bg-iris-card border border-iris-border rounded-xl flex flex-col h-full max-h-[600px]">
-      {/* Header */}
-      <div className="p-3 border-b border-iris-border flex items-center justify-between">
+    <div className="bg-iris-card border border-iris-border rounded-xl flex flex-col h-full">
+      {/* ── Header ── */}
+      <div className="p-3 border-b border-iris-border flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-iris-gold/10">
+          <div className="p-1.5 rounded-lg bg-iris-gold/10 border border-iris-gold/20">
             <Sparkles className="w-4 h-4 text-iris-gold" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-iris-text">
-              Asistente IRIS IA
-            </h3>
-            <p className="text-[10px] text-iris-text-muted">
-              Consultá sobre tus instalaciones solares
-            </p>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-iris-text">Asistente IRIS IA</h3>
+              {modeBadge && (
+                <span className={`text-[9px] px-2 py-0.5 rounded-full font-medium border ${modeBadge.color}`}>
+                  {modeBadge.label}
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] text-iris-text-muted">Consultá sobre tus instalaciones en tiempo real</p>
           </div>
         </div>
+        {messages.length > 0 && (
+          <button
+            onClick={clearChat}
+            title="Limpiar conversación"
+            className="p-1.5 rounded-lg text-iris-text-muted hover:text-iris-text hover:bg-iris-dark transition-all cursor-pointer"
+            aria-label="Limpiar conversación"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[300px]">
+      {/* ── Messages ── */}
+      <div
+        className="flex-1 overflow-y-auto p-3 space-y-3"
+        role="log"
+        aria-live="polite"
+        aria-label="Conversación con el asistente"
+      >
+        {/* Estado vacío */}
         {messages.length === 0 && (
-          <div className="text-center py-6">
-            <Bot className="w-10 h-10 text-iris-gold/30 mx-auto mb-3" />
-            <p className="text-sm text-iris-text font-medium mb-1">
-              Hola, soy el asistente de IRIS
+          <div className="flex flex-col items-center justify-center h-full py-6 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-iris-gold/10 border border-iris-gold/20 flex items-center justify-center mb-4">
+              <Bot className="w-7 h-7 text-iris-gold" />
+            </div>
+            <p className="text-sm font-semibold text-iris-text mb-1">Hola, soy el asistente IRIS</p>
+            <p className="text-xs text-iris-text-muted mb-5 max-w-[240px]">
+              Preguntame sobre generación, alertas, mantenimientos o cualquier dato del sistema.
             </p>
-            <p className="text-xs text-iris-text-muted mb-4">
-              Preguntame sobre tus instalaciones, generación, alertas o
-              cualquier dato del sistema.
-            </p>
-            <div className="space-y-2">
+            <div className="w-full space-y-2">
               {SUGGESTED_QUESTIONS.map((q) => (
                 <button
                   key={q}
                   onClick={() => sendMessage(q)}
-                  className="w-full text-left px-3 py-2 rounded-lg border border-iris-border text-xs text-iris-text-muted hover:border-iris-gold/30 hover:text-iris-text transition-all"
+                  className="w-full text-left px-3 py-2.5 rounded-lg border border-iris-border text-xs text-iris-text-muted hover:border-iris-gold/40 hover:bg-iris-gold/5 hover:text-iris-text transition-all duration-150 cursor-pointer"
                 >
-                  {q}
+                  <span className="text-iris-gold mr-2">→</span>{q}
                 </button>
               ))}
             </div>
           </div>
         )}
 
+        {/* Mensajes */}
         {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-          >
+          <div key={i} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            {/* Avatar asistente */}
+            {msg.role === "assistant" && (
+              <div className="w-6 h-6 rounded-full bg-iris-gold/10 border border-iris-gold/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Bot className="w-3 h-3 text-iris-gold" />
+              </div>
+            )}
+
             <div
-              className={`max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
+              className={`max-w-[85%] rounded-xl px-3 py-2.5 text-xs leading-relaxed ${
                 msg.role === "user"
-                  ? "bg-iris-gold/20 text-iris-text border border-iris-gold/20"
-                  : "bg-iris-dark text-iris-text-muted border border-iris-border"
+                  ? "bg-iris-gold/15 text-iris-text border border-iris-gold/20 rounded-br-sm"
+                  : "bg-iris-dark text-iris-text border border-iris-border rounded-bl-sm"
               }`}
             >
-              <div className="flex items-start gap-2">
-                {msg.role === "assistant" && (
-                  <Bot className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-iris-gold" />
-                )}
-                {msg.role === "user" && (
-                  <User className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-iris-gold" />
-                )}
-                <div className="whitespace-pre-wrap">{msg.content}</div>
-              </div>
+              {msg.role === "assistant" ? (
+                /* ── Markdown rendering para respuestas del asistente ── */
+                <ReactMarkdown
+                  components={{
+                    p: ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
+                    strong: ({ children }) => <strong className="text-iris-gold font-semibold">{children}</strong>,
+                    ul: ({ children }) => <ul className="space-y-0.5 my-1.5 pl-1">{children}</ul>,
+                    ol: ({ children }) => <ol className="space-y-0.5 my-1.5 pl-1 list-decimal list-inside">{children}</ol>,
+                    li: ({ children }) => (
+                      <li className="flex items-start gap-1.5">
+                        <span className="text-iris-gold mt-0.5 flex-shrink-0">•</span>
+                        <span>{children}</span>
+                      </li>
+                    ),
+                    code: ({ children }) => (
+                      <code className="bg-iris-card px-1.5 py-0.5 rounded text-iris-teal font-mono text-[10px]">{children}</code>
+                    ),
+                    h1: ({ children }) => <h1 className="text-sm font-bold text-iris-text mb-1">{children}</h1>,
+                    h2: ({ children }) => <h2 className="text-xs font-bold text-iris-gold mb-1">{children}</h2>,
+                    h3: ({ children }) => <h3 className="text-xs font-semibold text-iris-text mb-1">{children}</h3>,
+                  }}
+                >
+                  {msg.content}
+                </ReactMarkdown>
+              ) : (
+                <span>{msg.content}</span>
+              )}
             </div>
+
+            {/* Avatar usuario */}
+            {msg.role === "user" && (
+              <div className="w-6 h-6 rounded-full bg-iris-teal/20 border border-iris-teal/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <User className="w-3 h-3 text-iris-teal" />
+              </div>
+            )}
           </div>
         ))}
 
+        {/* Loading con dots animados */}
         {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-iris-dark border border-iris-border rounded-xl px-3 py-2 flex items-center gap-2">
-              <Loader2 className="w-3.5 h-3.5 text-iris-gold animate-spin" />
-              <span className="text-xs text-iris-text-muted">Pensando...</span>
+          <div className="flex gap-2 justify-start">
+            <div className="w-6 h-6 rounded-full bg-iris-gold/10 border border-iris-gold/20 flex items-center justify-center flex-shrink-0">
+              <Bot className="w-3 h-3 text-iris-gold" />
+            </div>
+            <div className="bg-iris-dark border border-iris-border rounded-xl rounded-bl-sm px-4 py-3 flex items-center gap-1">
+              {[0, 150, 300].map((delay) => (
+                <div
+                  key={delay}
+                  className="w-1.5 h-1.5 rounded-full bg-iris-gold/60"
+                  style={{ animation: `bounce 1s ease-in-out ${delay}ms infinite` }}
+                />
+              ))}
             </div>
           </div>
         )}
+
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="p-3 border-t border-iris-border">
+      {/* ── Input ── */}
+      <div className="p-3 border-t border-iris-border flex-shrink-0">
+        {/* Hint de teclado */}
         <div className="flex gap-2">
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) =>
-              e.key === "Enter" && !isLoading && sendMessage(input)
-            }
-            placeholder="Escribí tu consulta..."
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && !isLoading) {
+                e.preventDefault();
+                sendMessage(input);
+              }
+            }}
+            placeholder="Escribí tu consulta... (Enter para enviar)"
             disabled={isLoading}
-            className="flex-1 bg-iris-dark border border-iris-border rounded-lg px-3 py-2 text-xs text-iris-text placeholder-iris-text-muted focus:outline-none focus:border-iris-gold/50 disabled:opacity-50"
+            maxLength={500}
+            className="flex-1 bg-iris-dark border border-iris-border rounded-lg px-3 py-2 text-xs text-iris-text placeholder-iris-text-muted/60 focus:outline-none focus:border-iris-gold/50 focus:ring-1 focus:ring-iris-gold/20 disabled:opacity-50 transition-all"
+            aria-label="Mensaje para el asistente"
           />
           <button
             onClick={() => sendMessage(input)}
             disabled={isLoading || !input.trim()}
-            className="p-2 rounded-lg bg-iris-gold text-iris-dark hover:bg-iris-gold-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2.5 rounded-lg bg-iris-gold text-iris-dark hover:bg-amber-400 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex-shrink-0"
+            aria-label="Enviar mensaje"
           >
-            <Send className="w-4 h-4" />
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
           </button>
         </div>
+        {input.length > 400 && (
+          <p className="text-[10px] text-iris-text-muted mt-1 text-right">{input.length}/500</p>
+        )}
       </div>
+
+      {/* Bounce animation style */}
+      <style>{`
+        @keyframes bounce {
+          0%, 60%, 100% { transform: translateY(0); opacity: 0.6; }
+          30% { transform: translateY(-4px); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }
