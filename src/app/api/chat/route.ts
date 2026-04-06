@@ -1,78 +1,110 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
 import { installations, getAllAlerts, getKPIs } from "@/data/mockData";
 
-function isValidApiKey(key: string | undefined): boolean {
-  if (!key || key.length < 20) return false;
-  if (!key.startsWith("sk-proj-") && !key.startsWith("sk-")) return false;
-  // Reject common placeholder patterns
-  if (key.includes("your") || key.includes("placeholder") || key.includes("demo") || key.includes("example")) return false;
-  return true;
+// ─── CONFIGURACIÓN N8N ───
+// Tu compañero del agente n8n debe proporcionar estas URLs:
+// - Webhook URL: la URL del nodo "Webhook" en n8n (método POST)
+// - Test URL: para desarrollo local de n8n
+const N8N_WEBHOOK_URL =
+  process.env.N8N_WEBHOOK_URL ||
+  "http://localhost:5678/webhook/iris-solar-chat";
+
+const N8N_TEST_URL =
+  process.env.N8N_TEST_URL ||
+  "http://localhost:5678/webhook-test/iris-solar-chat";
+
+// Usar test URL en desarrollo, webhook URL en producción
+const WEBHOOK_URL =
+  process.env.NODE_ENV === "production" ? N8N_WEBHOOK_URL : N8N_TEST_URL;
+
+// ─── CONTEXTO DE DATOS PARA N8N ───
+function buildContextPayload() {
+  return {
+    installations: installations.map((inst) => ({
+      id: inst.id,
+      name: inst.name,
+      location: inst.location,
+      powerKwp: inst.powerKwp,
+      panelCount: inst.panelCount,
+      panelBrand: inst.panelBrand,
+      inverterBrand: inst.inverterBrand,
+      inverterModel: inst.inverterModel,
+      status: inst.status,
+      generationTodayKwh: inst.generationTodayKwh,
+      generationMonthKwh: inst.generationMonthKwh,
+      energyInjectedKwh: inst.energyInjectedKwh,
+      energyConsumedKwh: inst.energyConsumedKwh,
+      clientType: inst.clientType,
+      nextMaintenance: inst.nextMaintenance,
+      alerts: inst.alerts.map((a) => ({
+        severity: a.severity,
+        message: a.message,
+      })),
+    })),
+    kpis: getKPIs(),
+    totalAlerts: getAllAlerts().length,
+  };
 }
-
-const SYSTEM_PROMPT = `Eres el asistente inteligente de IRIS Solar Platform, una plataforma de monitoreo de instalaciones solares en Córdoba, Argentina.
-
-CONTEXTO DEL SISTEMA - DATOS ACTUALES:
-
-${installations.map((inst) => `- ${inst.name} (${inst.location}): ${inst.powerKwp} kWp, ${inst.panelCount} paneles ${inst.panelBrand}, inversor ${inst.inverterBrand} ${inst.inverterModel} de ${inst.inverterPowerKw}kW. Estado: ${inst.status}. Generación hoy: ${inst.generationTodayKwh} kWh. Generación mensual: ${inst.generationMonthKwh} kWh. Energía inyectada: ${inst.energyInjectedKwh} kWh. Energía consumida: ${inst.energyConsumedKwh} kWh. Tipo: ${inst.clientType}. Próximo mantenimiento: ${inst.nextMaintenance}. Alertas: ${inst.alerts.length > 0 ? inst.alerts.map((a) => `[${a.severity}] ${a.message}`).join(", ") : "Sin alertas"}.`).join("\n")}
-
-KPIs TOTALES:
-- Instalaciones activas: ${getKPIs().active} de ${installations.length}
-- MW totales: ${getKPIs().totalMw.toFixed(1)} MW
-- kWh generados hoy: ${getKPIs().totalTodayKwh.toLocaleString("es-AR")}
-- Alertas activas: ${getAllAlerts().length}
-
-INSTRUCCIONES:
-- Respondé siempre en español rioplatense (usá "vos", "che" si es natural).
-- Sé conciso pero informativo. Usá datos numéricos reales del contexto.
-- Si te preguntan por una instalación específica, buscá por nombre.
-- Si te preguntan por la que más generó, compará generationMonthKwh.
-- Si te preguntan por alertas, listá las instalaciones con alerts.length > 0.
-- Si te preguntan por mantenimiento, mirá nextMaintenance.
-- Si te preguntan por un resumen ejecutivo, dá un overview con los KPIs y las alertas más importantes.
-- Si no tenés información para responder, decí que no contás con ese dato pero ofrecé información relacionada.
-- Usá formato markdown básico para listas y negritas.
-- No inventes datos. Usá solo los datos proporcionados en el contexto.`;
 
 export async function POST(req: NextRequest) {
   try {
     const { message, history } = await req.json();
 
-    if (!isValidApiKey(process.env.OPENAI_API_KEY)) {
+    // Si no hay webhook configurado, usar fallback
+    if (
+      !process.env.N8N_WEBHOOK_URL &&
+      !process.env.N8N_TEST_URL
+    ) {
       const response = generateFallbackResponse(message);
       return NextResponse.json({ response, mode: "fallback" });
     }
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    // Payload para n8n
+    const payload = {
+      message,
+      history: history || [],
+      context: buildContextPayload(),
+      timestamp: new Date().toISOString(),
+    };
 
-    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...(history || []).map((msg: { role: string; content: string }) => ({
-        role: msg.role as "user" | "assistant",
-        content: msg.content,
-      })),
-      { role: "user", content: message },
-    ];
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages,
-      max_tokens: 800,
-      temperature: 0.3,
+    // Llamar al webhook de n8n
+    const response = await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000), // 15s timeout
     });
 
-    const response =
-      completion.choices[0]?.message?.content ||
-      "No pude generar una respuesta.";
+    if (!response.ok) {
+      throw new Error(`n8n webhook returned ${response.status}`);
+    }
 
-    return NextResponse.json({ response, mode: "openai" });
+    const data = await response.json();
+
+    // n8n debe devolver: { response: "texto de respuesta" }
+    // Si devuelve otro formato, intentar extraer el texto
+    const reply =
+      data.response || data.reply || data.message || data.output || data.text;
+
+    if (!reply) {
+      console.warn("n8n response missing expected field, using fallback");
+      const fallback = generateFallbackResponse(message);
+      return NextResponse.json({ response: fallback, mode: "fallback" });
+    }
+
+    return NextResponse.json({ response: reply, mode: "n8n" });
   } catch (error) {
-    console.error("Chat API error:", error);
-    const fallback = generateFallbackResponse("");
+    console.error("n8n webhook error:", error);
+    // Fallback si n8n no responde
+    const { message } = await req.json().catch(() => ({ message: "" }));
+    const fallback = generateFallbackResponse(message);
     return NextResponse.json({ response: fallback, mode: "fallback" });
   }
 }
 
+// ─── FALLBACK (se usa si n8n no está disponible) ───
 function generateFallbackResponse(message: string): string {
   const msg = message.toLowerCase();
 

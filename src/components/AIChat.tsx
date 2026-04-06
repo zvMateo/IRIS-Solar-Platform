@@ -19,7 +19,7 @@ export default function AIChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [mode, setMode] = useState<"openai" | "fallback" | null>(null);
+  const [mode, setMode] = useState<"n8n" | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -46,14 +46,18 @@ export default function AIChat() {
       }
 
       const data = await res.json();
-      setMessages((prev) => [...prev, { role: "assistant", content: data.response }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: data.response },
+      ]);
       if (data.mode) setMode(data.mode);
     } catch {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Lo siento, hubo un error al procesar tu consulta. Verificá que la API key de OpenAI esté configurada correctamente.",
+          content:
+            "Lo siento, hubo un error al procesar tu consulta. Verificá que la API key de OpenAI esté configurada correctamente.",
         },
       ]);
     } finally {
@@ -70,17 +74,29 @@ export default function AIChat() {
             <Sparkles className="w-4 h-4 text-iris-gold" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-iris-text">Asistente IRIS IA</h3>
-            <p className="text-[10px] text-iris-text-muted">Consultá sobre tus instalaciones solares</p>
+            <h3 className="text-sm font-semibold text-iris-text">
+              Asistente IRIS IA
+            </h3>
+            <p className="text-[10px] text-iris-text-muted">
+              Consultá sobre tus instalaciones solares
+            </p>
           </div>
         </div>
         {mode && (
-          <span className={`text-[9px] px-2 py-0.5 rounded-full font-medium ${
-            mode === "openai"
-              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-              : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-          }`}>
-            {mode === "openai" ? "⚡ GPT-4o" : "🧠 Smart Fallback"}
+          <span
+            className={`text-[9px] px-2 py-0.5 rounded-full font-medium ${
+              mode === "n8n"
+                ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                : mode === "openai"
+                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                  : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+            }`}
+          >
+            {mode === "n8n"
+              ? "🤖 n8n Agent"
+              : mode === "openai"
+                ? "⚡ GPT-4o"
+                : "🧠 Fallback"}
           </span>
         )}
       </div>
@@ -90,9 +106,12 @@ export default function AIChat() {
         {messages.length === 0 && (
           <div className="text-center py-6">
             <Bot className="w-10 h-10 text-iris-gold/30 mx-auto mb-3" />
-            <p className="text-sm text-iris-text font-medium mb-1">Hola, soy el asistente de IRIS</p>
+            <p className="text-sm text-iris-text font-medium mb-1">
+              Hola, soy el asistente de IRIS
+            </p>
             <p className="text-xs text-iris-text-muted mb-4">
-              Preguntame sobre tus instalaciones, generación, alertas o cualquier dato del sistema.
+              Preguntame sobre tus instalaciones, generación, alertas o
+              cualquier dato del sistema.
             </p>
             <div className="space-y-2">
               {SUGGESTED_QUESTIONS.map((q) => (
@@ -109,7 +128,10 @@ export default function AIChat() {
         )}
 
         {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+          <div
+            key={i}
+            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+          >
             <div
               className={`max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
                 msg.role === "user"
@@ -118,8 +140,12 @@ export default function AIChat() {
               }`}
             >
               <div className="flex items-start gap-2">
-                {msg.role === "assistant" && <Bot className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-iris-gold" />}
-                {msg.role === "user" && <User className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-iris-gold" />}
+                {msg.role === "assistant" && (
+                  <Bot className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-iris-gold" />
+                )}
+                {msg.role === "user" && (
+                  <User className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-iris-gold" />
+                )}
                 <div className="whitespace-pre-wrap">{msg.content}</div>
               </div>
             </div>
@@ -144,7 +170,9 @@ export default function AIChat() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !isLoading && sendMessage(input)}
+            onKeyDown={(e) =>
+              e.key === "Enter" && !isLoading && sendMessage(input)
+            }
             placeholder="Escribí tu consulta..."
             disabled={isLoading}
             className="flex-1 bg-iris-dark border border-iris-border rounded-lg px-3 py-2 text-xs text-iris-text placeholder-iris-text-muted focus:outline-none focus:border-iris-gold/50 disabled:opacity-50"
