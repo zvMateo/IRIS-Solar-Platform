@@ -106,23 +106,6 @@ export default function AIChat() {
             </p>
           </div>
         </div>
-        {mode && (
-          <span
-            className={`text-[9px] px-2 py-0.5 rounded-full font-medium ${
-              mode === "n8n"
-                ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-                : mode === "openai"
-                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                  : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-            }`}
-          >
-            {mode === "n8n"
-              ? "🤖 n8n Agent"
-              : mode === "openai"
-                ? "⚡ GPT-4o"
-                : "🧠 Fallback"}
-          </span>
-        )}
       </div>
 
       {/* Messages */}
