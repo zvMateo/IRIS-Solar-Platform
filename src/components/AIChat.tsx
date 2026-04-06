@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2, Sparkles, RotateCcw } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Send, Bot, User, Loader2, Sparkles, RotateCcw, Play } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 interface Message {
@@ -9,28 +9,33 @@ interface Message {
   content: string;
 }
 
-const SUGGESTED_QUESTIONS = [
-  "¿Cuál es la instalación que más generó este mes?",
-  "¿Qué parques tienen alertas activas?",
-  "Dame un resumen ejecutivo de hoy",
-  "¿Qué instalaciones necesitan mantenimiento pronto?",
+const DEMO_QUESTIONS = [
+  { label: "📊 Resumen ejecutivo", q: "Dame un resumen ejecutivo del estado actual de todas las instalaciones" },
+  { label: "⚡ Top generadores", q: "¿Cuáles son las 3 instalaciones que más generaron este mes?" },
+  { label: "🚨 Alertas críticas", q: "¿Qué instalaciones tienen alertas críticas y qué acciones recomiendas?" },
+  { label: "🌿 Impacto ambiental", q: "Con la generación actual, ¿cuánto CO₂ evitamos y cuánto ahorramos este año?" },
 ];
 
 export default function AIChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isDemoRunning, setIsDemoRunning] = useState(false);
   const [mode, setMode] = useState<"openai" | "n8n" | "fallback" | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Ref de messages para usar en runDemoScript sin dep stale
+  const messagesRef = useRef<Message[]>([]);
+  messagesRef.current = messages;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = async (text: string) => {
+  const sendMessage = useCallback(async (text: string, currentMessages?: Message[]) => {
     if (!text.trim() || isLoading) return;
 
+    const historyToUse = currentMessages ?? messagesRef.current;
     const userMsg: Message = { role: "user", content: text.trim() };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
@@ -40,12 +45,13 @@ export default function AIChat() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text.trim(), history: messages }),
+        body: JSON.stringify({ message: text.trim(), history: historyToUse }),
       });
 
       const data = await res.json();
       setMessages((prev) => [...prev, { role: "assistant", content: data.response }]);
       if (data.mode) setMode(data.mode);
+      return data.response as string;
     } catch {
       setMessages((prev) => [...prev, {
         role: "assistant",
@@ -53,9 +59,23 @@ export default function AIChat() {
       }]);
     } finally {
       setIsLoading(false);
-      // Devolver foco al input (UX: el usuario sigue escribiendo)
       setTimeout(() => inputRef.current?.focus(), 50);
     }
+  }, [isLoading]);
+
+  // Demo script: envía 2 preguntas icónicas con delay entre ellas
+  const runDemoScript = async () => {
+    if (isDemoRunning || isLoading) return;
+    setIsDemoRunning(true);
+    clearChat();
+    // pequeño delay para que se vea el clear
+    await new Promise((r) => setTimeout(r, 300));
+    const scriptQuestions = [DEMO_QUESTIONS[0].q, DEMO_QUESTIONS[2].q];
+    for (const q of scriptQuestions) {
+      await sendMessage(q, messagesRef.current);
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+    setIsDemoRunning(false);
   };
 
   const clearChat = () => {
@@ -90,16 +110,28 @@ export default function AIChat() {
             <p className="text-[10px] text-iris-text-muted">Consultá sobre tus instalaciones en tiempo real</p>
           </div>
         </div>
-        {messages.length > 0 && (
+        <div className="flex items-center gap-1.5">
+          {/* Demo script button */}
           <button
-            onClick={clearChat}
-            title="Limpiar conversación"
-            className="p-1.5 rounded-lg text-iris-text-muted hover:text-iris-text hover:bg-iris-dark transition-all cursor-pointer"
-            aria-label="Limpiar conversación"
+            onClick={runDemoScript}
+            disabled={isDemoRunning || isLoading}
+            title="Ejecutar demo automático"
+            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-iris-gold/10 text-iris-gold border border-iris-gold/20 hover:bg-iris-gold/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <Play className="w-2.5 h-2.5" />
+            {isDemoRunning ? "Demo..." : "Demo"}
           </button>
-        )}
+          {messages.length > 0 && (
+            <button
+              onClick={clearChat}
+              title="Limpiar conversación"
+              className="p-1.5 rounded-lg text-iris-text-muted hover:text-iris-text hover:bg-iris-dark transition-all cursor-pointer"
+              aria-label="Limpiar conversación"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Messages ── */}
@@ -120,13 +152,14 @@ export default function AIChat() {
               Preguntame sobre generación, alertas, mantenimientos o cualquier dato del sistema.
             </p>
             <div className="w-full space-y-2">
-              {SUGGESTED_QUESTIONS.map((q) => (
+              {DEMO_QUESTIONS.map(({ label, q }) => (
                 <button
                   key={q}
                   onClick={() => sendMessage(q)}
-                  className="w-full text-left px-3 py-2.5 rounded-lg border border-iris-border text-xs text-iris-text-muted hover:border-iris-gold/40 hover:bg-iris-gold/5 hover:text-iris-text transition-all duration-150 cursor-pointer"
+                  className="w-full text-left px-3 py-2.5 rounded-lg border border-iris-border text-xs text-iris-text-muted hover:border-iris-gold/40 hover:bg-iris-gold/5 hover:text-iris-text transition-all duration-150 cursor-pointer group"
                 >
-                  <span className="text-iris-gold mr-2">→</span>{q}
+                  <span className="text-iris-gold mr-2 group-hover:mr-3 transition-all">{label}</span>
+                  <span className="text-iris-text-muted/70">{q}</span>
                 </button>
               ))}
             </div>

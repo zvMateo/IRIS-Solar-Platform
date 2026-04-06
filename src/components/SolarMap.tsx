@@ -6,12 +6,40 @@ import "leaflet/dist/leaflet.css";
 import { installations, InstallationStatus, statusColors, clientTypeLabels } from "@/data/mockData";
 import { useMemo, useState } from "react";
 import { useTheme } from "next-themes";
+import { Layers, Moon, Sun as SunIcon } from "lucide-react";
+
+type TileMode = "dark" | "light" | "satellite";
+
+const TILES: Record<TileMode, { url: string; attribution: string }> = {
+  dark: {
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+  },
+  light: {
+    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+  },
+  satellite: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri",
+  },
+};
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 
-function createCustomIcon(status: InstallationStatus, isSelected: boolean, powerKwp: number) {
+function createCustomIcon(status: InstallationStatus, isSelected: boolean, powerKwp: number, isSatellite = false) {
   const color = statusColors[status];
   const size = powerKwp >= 150 ? 44 : powerKwp >= 80 ? 38 : 32;
+  const borderColor = isSatellite ? "#ffffff" : "#0B1426";
+  const containerSize = size + 28; // espacio para el glow
+
+  // Glow intensidad por status
+  const glowStyle = isSelected
+    ? `box-shadow:0 0 20px #F59E0Bcc, 0 0 40px #F59E0B66;`
+    : status === "alerta"
+    ? `box-shadow:0 0 16px #EF444499, 0 0 32px #EF444455;`
+    : `box-shadow:0 0 12px ${color}99, 0 0 24px ${color}44;`;
+
   const pulse = status === "alerta" ? `
     <div style="
       position:absolute;
@@ -28,35 +56,35 @@ function createCustomIcon(status: InstallationStatus, isSelected: boolean, power
       position:absolute;
       top:50%;left:50%;
       transform:translate(-50%,-50%);
-      width:${size + 10}px;height:${size + 10}px;
+      width:${size + 12}px;height:${size + 12}px;
       border-radius:50%;
       border:2px solid #F59E0B;
-      box-shadow:0 0 12px #F59E0B88;
+      box-shadow:0 0 16px #F59E0B88;
     "></div>` : "";
 
   // Ícono solar SVG diferente por tipo de estado
   const iconSvg = status === "operativo"
     ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 3v1M12 20v1M4.22 4.22l.7.7M18.36 18.36l.7.7M3 12H2M22 12h-1M4.22 19.78l.7-.7M18.36 5.64l.7-.7M17 12a5 5 0 1 1-10 0 5 5 0 0 1 10 0z" stroke="#0B1426" stroke-width="2" stroke-linecap="round"/>
+        <path d="M12 3v1M12 20v1M4.22 4.22l.7.7M18.36 18.36l.7.7M3 12H2M22 12h-1M4.22 19.78l.7-.7M18.36 5.64l.7-.7M17 12a5 5 0 1 1-10 0 5 5 0 0 1 10 0z" stroke="${borderColor}" stroke-width="2" stroke-linecap="round"/>
       </svg>`
     : status === "mantenimiento"
     ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" stroke="#0B1426" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" stroke="${borderColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>`
     : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01" stroke="#0B1426" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01" stroke="${borderColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>`;
 
   const html = `
-    <div style="position:relative;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;">
+    <div style="position:relative;width:${containerSize}px;height:${containerSize}px;display:flex;align-items:center;justify-content:center;">
       ${pulse}
       ${selectedRing}
       <div style="
         width:${size}px;height:${size}px;
         border-radius:50%;
         background:${color};
-        border:2px solid #0B1426;
-        box-shadow:0 2px 8px ${color}66;
+        border:2px solid ${borderColor};
+        ${glowStyle}
         display:flex;align-items:center;justify-content:center;
         position:relative;z-index:1;
         transition:transform 0.2s;
@@ -75,9 +103,9 @@ function createCustomIcon(status: InstallationStatus, isSelected: boolean, power
   return L.divIcon({
     html,
     className: "",
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -(size / 2) - 8],
+    iconSize: [containerSize, containerSize],
+    iconAnchor: [containerSize / 2, containerSize / 2],
+    popupAnchor: [0, -(containerSize / 2) - 4],
   });
 }
 
@@ -100,11 +128,10 @@ interface SolarMapProps {
 export default function SolarMap({ selectedInstallation, onSelectInstallation, filters }: SolarMapProps) {
   const { theme } = useTheme();
   const isDark = theme !== "light";
+  const [tileMode, setTileMode] = useState<TileMode>(isDark ? "dark" : "light");
 
-  // Tile layer según tema — CartoDB dark vs light
-  const tileUrl = isDark
-    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-    : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+  const isSatellite = tileMode === "satellite";
+  const tile = TILES[tileMode];
 
   const filtered = useMemo(() => {
     return installations.filter((inst) => {
@@ -115,7 +142,16 @@ export default function SolarMap({ selectedInstallation, onSelectInstallation, f
     });
   }, [filters]);
 
+  const totalMW = (filtered.reduce((s, i) => s + i.powerKwp, 0) / 1000).toFixed(2);
+  const alertCount = filtered.reduce((s, i) => s + i.alerts.length, 0);
+
   const center: [number, number] = [-31.5, -63.8];
+
+  const tileModeButtons: { mode: TileMode; icon: React.ReactNode; label: string }[] = [
+    { mode: "dark",      icon: <Moon className="w-3 h-3" />,    label: "Oscuro" },
+    { mode: "light",     icon: <SunIcon className="w-3 h-3" />, label: "Claro" },
+    { mode: "satellite", icon: <Layers className="w-3 h-3" />,  label: "Satélite" },
+  ];
 
   return (
     <div className="relative w-full h-full rounded-xl overflow-hidden border border-iris-border">
@@ -128,16 +164,16 @@ export default function SolarMap({ selectedInstallation, onSelectInstallation, f
       >
         <ZoomControl position="topright" />
         <TileLayer
-          key={tileUrl}
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-          url={tileUrl}
+          key={tile.url}
+          attribution={tile.attribution}
+          url={tile.url}
         />
 
         {filtered.map((inst) => (
           <Marker
             key={inst.id}
             position={[inst.lat, inst.lng]}
-            icon={createCustomIcon(inst.status, inst.id === selectedInstallation, inst.powerKwp)}
+            icon={createCustomIcon(inst.status, inst.id === selectedInstallation, inst.powerKwp, isSatellite)}
             eventHandlers={{
               click: () => onSelectInstallation(inst.id === selectedInstallation ? null : inst.id),
             }}
@@ -185,29 +221,57 @@ export default function SolarMap({ selectedInstallation, onSelectInstallation, f
         ))}
       </MapContainer>
 
+      {/* HUD — Mission Control bar */}
+      <div className="absolute top-4 left-4 z-[1000] flex items-center gap-2 bg-black/65 backdrop-blur-md border border-white/10 rounded-xl px-3 py-2 text-xs">
+        <span className="flex items-center gap-1.5 text-emerald-400 font-bold mr-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          LIVE
+        </span>
+        <span className="text-white/25">|</span>
+        <span className="text-white/60">{filtered.length} instalaciones</span>
+        <span className="text-white/25">|</span>
+        <span className="text-amber-400 font-bold">{totalMW} MW</span>
+        <span className="text-white/25">|</span>
+        <span className={alertCount > 0 ? "text-red-400 font-bold" : "text-white/60"}>
+          {alertCount} {alertCount === 1 ? "alerta" : "alertas"}
+        </span>
+      </div>
+
+      {/* Tile layer toggle */}
+      <div className="absolute top-4 right-14 z-[1000] flex items-center gap-0.5 bg-black/65 backdrop-blur-md border border-white/10 rounded-xl p-1">
+        {tileModeButtons.map(({ mode, icon, label }) => (
+          <button
+            key={mode}
+            onClick={() => setTileMode(mode)}
+            title={label}
+            className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all ${
+              tileMode === mode
+                ? "bg-amber-400/90 text-gray-900"
+                : "text-white/60 hover:text-white hover:bg-white/10"
+            }`}
+          >
+            {icon}
+          </button>
+        ))}
+      </div>
+
       {/* Leyenda */}
-      <div className="absolute bottom-4 left-4 z-[1000] bg-iris-darker/90 backdrop-blur border border-iris-border rounded-xl p-3 text-xs">
-        <p className="font-semibold text-iris-text mb-2 text-[11px] uppercase tracking-wider">Estado de red</p>
+      <div className="absolute bottom-4 left-4 z-[1000] bg-black/65 backdrop-blur-md border border-white/10 rounded-xl p-3 text-xs">
+        <p className="font-semibold text-white/80 mb-2 text-[11px] uppercase tracking-wider">Estado de red</p>
         {(["operativo", "mantenimiento", "alerta"] as InstallationStatus[]).map((status) => {
           const count = installations.filter((i) => i.status === status).length;
           return (
             <div key={status} className="flex items-center gap-2 py-0.5">
-              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusColors[status], boxShadow: `0 0 6px ${statusColors[status]}88` }} />
-              <span className="text-iris-text-muted capitalize flex-1">{status}</span>
-              <span className="text-iris-text font-semibold ml-2">{count}</span>
+              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                style={{ backgroundColor: statusColors[status], boxShadow: `0 0 6px ${statusColors[status]}99` }} />
+              <span className="text-white/60 capitalize flex-1">{status}</span>
+              <span className="text-white/80 font-semibold ml-2">{count}</span>
             </div>
           );
         })}
-        <div className="border-t border-iris-border mt-2 pt-2">
-          <p className="text-iris-text-muted text-[10px]">⊙ Tamaño = potencia instalada</p>
+        <div className="border-t border-white/10 mt-2 pt-2">
+          <p className="text-white/40 text-[10px]">⊙ Tamaño = potencia instalada</p>
         </div>
-      </div>
-
-      {/* Stats flotantes top-right */}
-      <div className="absolute top-4 left-4 z-[1000] bg-iris-darker/90 backdrop-blur border border-iris-border rounded-xl px-3 py-2 text-xs">
-        <span className="text-iris-text-muted">Mostrando </span>
-        <span className="text-iris-gold font-bold">{filtered.length}</span>
-        <span className="text-iris-text-muted"> de {installations.length} instalaciones</span>
       </div>
     </div>
   );

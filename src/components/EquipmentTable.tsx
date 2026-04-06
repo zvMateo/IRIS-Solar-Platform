@@ -212,8 +212,12 @@ export default function EquipmentTable() {
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <div className="py-12 text-center">
-            <p className="text-iris-text-muted text-sm">No se encontraron equipos</p>
+          <div className="py-16 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-iris-dark border border-iris-border flex items-center justify-center mx-auto mb-3">
+              <Search className="w-6 h-6 text-iris-text-muted" />
+            </div>
+            <p className="text-sm font-medium text-iris-text">Sin resultados</p>
+            <p className="text-xs text-iris-text-muted mt-1">Probá con otro término de búsqueda o cambiá el filtro de tipo</p>
           </div>
         )}
       </div>

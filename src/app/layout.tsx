@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 
 const inter = Inter({
   subsets: ["latin"],
+  weight: ["400", "600", "700", "900"],
   variable: "--font-inter",
 });
 

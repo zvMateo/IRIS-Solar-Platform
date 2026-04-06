@@ -1,6 +1,6 @@
 "use client";
 
-import { installations, generateSolarCurve, generateMonthlyData, statusColors, clientTypeLabels } from "@/data/mockData";
+import { installations, generateSolarCurve, generateMonthlyData, statusColors, clientTypeLabels, getEfficiencyScore } from "@/data/mockData";
 import {
   LineChart,
   Line,
@@ -19,32 +19,73 @@ interface InstallationDetailProps {
   onClose: () => void;
 }
 
+// Donut SVG de eficiencia
+function EfficiencyDonut({ score }: { score: number }) {
+  const r = 18;
+  const circ = 2 * Math.PI * r;
+  const arc = (score / 100) * circ;
+  const color = score >= 80 ? "#10B981" : score >= 60 ? "#F59E0B" : score === 0 ? "#94A3B8" : "#EF4444";
+  return (
+    <svg width="48" height="48" viewBox="0 0 48 48" className="flex-shrink-0">
+      <circle cx="24" cy="24" r={r} fill="none" stroke="#1E2D45" strokeWidth="4" />
+      <circle
+        cx="24" cy="24" r={r} fill="none"
+        stroke={color} strokeWidth="4"
+        strokeDasharray={`${arc} ${circ}`}
+        strokeLinecap="round"
+        transform="rotate(-90 24 24)"
+      />
+      <text x="24" y="27" textAnchor="middle" fontSize="9" fill={color} fontWeight="bold">
+        {score === 0 ? "—" : `${score}%`}
+      </text>
+    </svg>
+  );
+}
+
 export default function InstallationDetail({ installationId, onClose }: InstallationDetailProps) {
   const inst = installations.find((i) => i.id === installationId);
   if (!inst) return null;
 
   const solarCurve = generateSolarCurve(inst);
   const monthlyData = generateMonthlyData(inst);
+  const score = getEfficiencyScore(inst);
+  const scoreColor = score >= 80 ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                   : score >= 60 ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                   : score === 0 ? "text-iris-text-muted bg-iris-dark border-iris-border"
+                   :               "text-red-400 bg-red-500/10 border-red-500/20";
 
   return (
     <div className="bg-iris-card border border-iris-border rounded-xl overflow-hidden flex flex-col max-h-[600px]">
-      {/* Header */}
-      <div className="p-4 border-b border-iris-border flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-2">
+      {/* Header con gradiente de color del status */}
+      <div
+        className="p-4 border-b border-iris-border flex items-start justify-between"
+        style={{ background: `linear-gradient(135deg, ${statusColors[inst.status]}12 0%, transparent 100%)` }}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-base font-bold text-iris-text">{inst.name}</h2>
             <span
-              className="px-2 py-0.5 rounded-full text-[10px] font-medium"
-              style={{ backgroundColor: `${statusColors[inst.status]}20`, color: statusColors[inst.status] }}
+              className="px-2 py-0.5 rounded-full text-[10px] font-semibold border"
+              style={{
+                backgroundColor: `${statusColors[inst.status]}20`,
+                color: statusColors[inst.status],
+                borderColor: `${statusColors[inst.status]}44`,
+              }}
             >
               {inst.status}
             </span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${scoreColor}`}>
+              {score === 0 ? "offline" : `${score}% eficiencia`}
+            </span>
           </div>
-          <p className="text-xs text-iris-text-muted mt-0.5">{inst.location}</p>
+          <p className="text-xs text-iris-text-muted mt-0.5">{inst.location} · {clientTypeLabels[inst.clientType]}</p>
         </div>
-        <button onClick={onClose} className="p-1 rounded hover:bg-iris-dark transition-colors">
-          <X className="w-4 h-4 text-iris-text-muted" />
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+          <EfficiencyDonut score={score} />
+          <button onClick={onClose} className="p-1 rounded hover:bg-iris-dark transition-colors">
+            <X className="w-4 h-4 text-iris-text-muted" />
+          </button>
+        </div>
       </div>
 
       {/* Content */}

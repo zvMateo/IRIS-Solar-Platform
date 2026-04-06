@@ -1093,6 +1093,18 @@ export function getAllAlerts(): Alert[] {
   return installations.flatMap((inst) => inst.alerts);
 }
 
+/**
+ * Calcula el score de eficiencia de una instalación (0-100).
+ * Compara la generación real del día vs la teórica (4.5 HSP para Córdoba).
+ * >=80 → verde (excelente), 60-79 → amber (normal), <60 → rojo (revisar)
+ */
+export function getEfficiencyScore(inst: Installation): number {
+  if (inst.status === "mantenimiento") return 0;
+  const theoretical = inst.powerKwp * 4.5; // 4.5 horas sol pico en Córdoba
+  const score = Math.round((inst.generationTodayKwh / theoretical) * 100);
+  return Math.min(score, 100);
+}
+
 export function getKPIs() {
   const active = installations.filter((i) => i.status === "operativo").length;
   const totalMw = installations.reduce((sum, i) => sum + i.powerKwp, 0) / 1000;

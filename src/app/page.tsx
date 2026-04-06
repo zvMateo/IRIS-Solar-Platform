@@ -25,10 +25,21 @@ type Tab = "map" | "dashboard" | "chat" | "equipment";
 // ── Pantalla de bienvenida ──────────────────────────────────────────
 function SplashScreen({ onEnter }: { onEnter: () => void }) {
   const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState("Iniciando sistema...");
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 1800);
-    return () => clearTimeout(t);
+    const steps = [
+      { delay: 200,  pct: 20,  msg: "Cargando instalaciones..." },
+      { delay: 600,  pct: 50,  msg: "Conectando datos en tiempo real..." },
+      { delay: 1100, pct: 80,  msg: "Verificando alertas del sistema..." },
+      { delay: 1600, pct: 100, msg: "Plataforma lista ✓" },
+    ];
+    const timers = steps.map(({ delay, pct, msg }) =>
+      setTimeout(() => { setProgress(pct); setStatusMessage(msg); }, delay)
+    );
+    const done = setTimeout(() => setLoading(false), 1900);
+    return () => { timers.forEach(clearTimeout); clearTimeout(done); };
   }, []);
 
   return (
@@ -88,25 +99,28 @@ function SplashScreen({ onEnter }: { onEnter: () => void }) {
           ))}
         </div>
 
-        {/* CTA */}
-        <button
-          onClick={onEnter}
-          disabled={loading}
-          className="mt-6 flex items-center gap-3 mx-auto bg-gradient-to-r from-iris-gold to-amber-500 text-iris-dark font-bold px-8 py-3.5 rounded-xl hover:shadow-lg hover:shadow-iris-gold/30 transition-all hover:scale-105 active:scale-100 disabled:opacity-50 disabled:cursor-wait"
-        >
-          {loading ? (
-            <>
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              Cargando plataforma...
-            </>
-          ) : (
-            <>
-              <Zap className="w-4 h-4" />
-              Acceder a la plataforma
-              <ChevronRight className="w-4 h-4" />
-            </>
-          )}
-        </button>
+        {/* Progress bar + CTA */}
+        {loading ? (
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <div className="w-64 h-1 bg-iris-card rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-iris-gold to-amber-400 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-iris-text-muted h-4 transition-all duration-300">{statusMessage}</p>
+          </div>
+        ) : (
+          <button
+            onClick={onEnter}
+            className="mt-6 flex items-center gap-3 mx-auto bg-gradient-to-r from-iris-gold to-amber-500 text-iris-dark font-bold px-8 py-3.5 rounded-xl hover:shadow-lg hover:shadow-iris-gold/30 transition-all hover:scale-105 active:scale-100"
+            style={{ animation: "fadeSlideIn 0.3s ease-out forwards" }}
+          >
+            <Zap className="w-4 h-4" />
+            Acceder a la plataforma
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
 
         <p className="text-[10px] text-iris-text-muted mt-4">
           Representantes oficiales de Sungrow & Jinko Solar
@@ -252,28 +266,34 @@ export default function Home() {
           </div>
         )}
 
-        {/* Live ticker en modo presentación */}
+        {/* Live ticker en modo presentación — cards grandes, visibles desde lejos */}
         {presentationMode && (
           <div className="mb-3 grid grid-cols-4 gap-3">
             {[
-              { label: "kWh Generados Hoy", value: live.totalTodayKwh.toLocaleString("es-AR"), unit: "kWh", color: "text-iris-gold" },
-              { label: "Potencia Activa", value: live.activePower.toLocaleString("es-AR"), unit: "kW", color: "text-iris-teal" },
-              { label: "CO₂ Evitado", value: live.co2Avoided.toLocaleString("es-AR"), unit: "kg", color: "text-green-400" },
-              { label: "Ahorro del día", value: `$${live.moneySaved.toLocaleString("es-AR")}`, unit: "ARS", color: "text-iris-gold-light" },
-            ].map(({ label, value, unit, color }) => (
-              <div key={label} className="bg-iris-card border border-iris-border rounded-xl px-4 py-2.5 flex items-center justify-between">
-                <span className="text-[10px] text-iris-text-muted uppercase tracking-wider">{label}</span>
-                <span className={`text-lg font-black ${color}`}>
-                  {value} <span className="text-xs font-normal text-iris-text-muted">{unit}</span>
-                </span>
+              { label: "kWh Generados Hoy", value: live.totalTodayKwh.toLocaleString("es-AR"), unit: "kWh", color: "text-iris-gold", accent: true },
+              { label: "Potencia Activa", value: live.activePower.toLocaleString("es-AR"), unit: "kW", color: "text-iris-teal", accent: false },
+              { label: "CO₂ Evitado Hoy", value: live.co2Avoided.toLocaleString("es-AR"), unit: "kg CO₂", color: "text-emerald-400", accent: false },
+              { label: "Ahorro del Día", value: `$${live.moneySaved.toLocaleString("es-AR")}`, unit: "ARS", color: "text-iris-gold-light", accent: false },
+            ].map(({ label, value, unit, color, accent }) => (
+              <div
+                key={label}
+                className={`bg-iris-card border rounded-xl px-5 py-4 flex flex-col transition-all ${
+                  accent
+                    ? "border-iris-gold/30 bg-gradient-to-br from-iris-card to-iris-gold/5"
+                    : "border-iris-border"
+                }`}
+              >
+                <p className="text-[11px] text-iris-text-muted uppercase tracking-widest mb-1">{label}</p>
+                <p className={`text-3xl font-black tabular-nums ${color}`}>{value}</p>
+                <p className="text-xs text-iris-text-muted mt-1">{unit}</p>
               </div>
             ))}
           </div>
         )}
 
-        {/* Contenido de tabs */}
+        {/* Contenido de tabs — con animación fade-slide en cada cambio */}
         {activeTab === "map" && (
-          <div className={`grid grid-cols-1 xl:grid-cols-4 gap-4 ${presentationMode ? "h-[calc(100%-60px)]" : ""}`}>
+          <div key="map" className={`tab-enter grid grid-cols-1 xl:grid-cols-4 gap-4 ${presentationMode ? "h-[calc(100%-60px)]" : ""}`}>
             <div className={`xl:col-span-3 space-y-3 ${presentationMode ? "flex flex-col h-full" : ""}`}>
               {!presentationMode && <MapFilters filters={filters} onFilterChange={setFilters} />}
               <div className={presentationMode ? "flex-1" : "h-[calc(100vh-320px)] min-h-[500px]"}>
@@ -298,7 +318,7 @@ export default function Home() {
         )}
 
         {activeTab === "dashboard" && (
-          <div className="space-y-4">
+          <div key="dashboard" className="tab-enter space-y-4">
             <SolarCharts selectedInstallation={null} filters={filters} />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <AlertsList />
@@ -355,7 +375,7 @@ export default function Home() {
         )}
 
         {activeTab === "chat" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div key="chat" className="tab-enter grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2 h-[calc(100vh-200px)] min-h-[500px]">
               <AIChat />
             </div>
@@ -365,7 +385,11 @@ export default function Home() {
           </div>
         )}
 
-        {activeTab === "equipment" && <EquipmentTable />}
+        {activeTab === "equipment" && (
+          <div key="equipment" className="tab-enter">
+            <EquipmentTable />
+          </div>
+        )}
       </main>
 
       {/* Footer — solo fuera de presentación */}
