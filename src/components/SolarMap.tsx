@@ -5,6 +5,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { installations, InstallationStatus, statusColors, clientTypeLabels } from "@/data/mockData";
 import { useMemo, useState } from "react";
+import { useTheme } from "next-themes";
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 
@@ -97,6 +98,14 @@ interface SolarMapProps {
 }
 
 export default function SolarMap({ selectedInstallation, onSelectInstallation, filters }: SolarMapProps) {
+  const { theme } = useTheme();
+  const isDark = theme !== "light";
+
+  // Tile layer según tema — CartoDB dark vs light
+  const tileUrl = isDark
+    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+    : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+
   const filtered = useMemo(() => {
     return installations.filter((inst) => {
       if (filters.status !== "all" && inst.status !== filters.status) return false;
@@ -118,10 +127,10 @@ export default function SolarMap({ selectedInstallation, onSelectInstallation, f
         zoomControl={false}
       >
         <ZoomControl position="topright" />
-        {/* Mapa satelital oscuro premium */}
         <TileLayer
+          key={tileUrl}
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url={tileUrl}
         />
 
         {filtered.map((inst) => (

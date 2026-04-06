@@ -16,6 +16,7 @@ import EquipmentTable from "@/components/EquipmentTable";
 import InstallationDetail from "@/components/InstallationDetail";
 import { InstallationStatus, installations } from "@/data/mockData";
 import { useLiveData } from "@/hooks/useLiveData";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const SolarMap = dynamic(() => import("@/components/SolarMap"), { ssr: false });
 
@@ -32,6 +33,10 @@ function SplashScreen({ onEnter }: { onEnter: () => void }) {
 
   return (
     <div className="min-h-screen bg-iris-darker flex flex-col items-center justify-center relative overflow-hidden">
+      {/* Toggle de tema en la splash — top right */}
+      <div className="absolute top-4 right-4 z-20">
+        <ThemeToggle />
+      </div>
       {/* Fondo animado */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(6)].map((_, i) => (
@@ -203,11 +208,15 @@ export default function Home() {
               </span>
             </div>
 
+            {/* Theme toggle */}
+            <ThemeToggle />
+
             {/* Modo presentación */}
             <button
               onClick={() => setPresentationMode(!presentationMode)}
               title={presentationMode ? "Salir de presentación" : "Modo presentación"}
-              className="p-1.5 rounded-lg border border-iris-border text-iris-text-muted hover:text-iris-gold hover:border-iris-gold/30 transition-all"
+              aria-label={presentationMode ? "Salir de modo presentación" : "Activar modo presentación"}
+              className="p-2 rounded-lg border border-iris-border text-iris-text-muted hover:text-iris-gold hover:border-iris-gold/30 transition-all cursor-pointer"
             >
               {presentationMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>

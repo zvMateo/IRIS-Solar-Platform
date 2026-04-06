@@ -1,68 +1,112 @@
 @import "tailwindcss";
 
-@theme {
-  --color-iris-dark: #0B1426;
-  --color-iris-darker: #070E1A;
-  --color-iris-card: #111B30;
-  --color-iris-border: #1E2D45;
-  --color-iris-gold: #F59E0B;
-  --color-iris-gold-light: #FBBF24;
-  --color-iris-teal: #0D9488;
-  --color-iris-teal-light: #14B8A6;
-  --color-iris-text: #E2E8F0;
-  --color-iris-text-muted: #94A3B8;
+/* ─────────────────────────────────────────────
+   LIGHT MODE (default)
+   ───────────────────────────────────────────── */
+:root {
+  --bg:          #F0F6FF;
+  --bg-darker:   #E4EDF9;
+  --bg-card:     #FFFFFF;
+  --bg-border:   #CBD5E1;
+  --text-primary: #0F172A;
+  --text-muted:   #475569;
+
+  /* Brand — iguales en ambos modos */
+  --gold:        #D97706;
+  --gold-light:  #F59E0B;
+  --teal:        #0D9488;
+  --teal-light:  #14B8A6;
 }
 
+/* ─────────────────────────────────────────────
+   DARK MODE
+   ───────────────────────────────────────────── */
+.dark {
+  --bg:          #0B1426;
+  --bg-darker:   #070E1A;
+  --bg-card:     #111B30;
+  --bg-border:   #1E2D45;
+  --text-primary: #E2E8F0;
+  --text-muted:   #94A3B8;
+
+  --gold:        #F59E0B;
+  --gold-light:  #FBBF24;
+}
+
+/* ─────────────────────────────────────────────
+   TAILWIND THEME — referencia las CSS vars
+   inline = no genera :root duplicado
+   ───────────────────────────────────────────── */
+@theme inline {
+  --color-iris-dark:       var(--bg);
+  --color-iris-darker:     var(--bg-darker);
+  --color-iris-card:       var(--bg-card);
+  --color-iris-border:     var(--bg-border);
+  --color-iris-text:       var(--text-primary);
+  --color-iris-text-muted: var(--text-muted);
+  --color-iris-gold:       var(--gold);
+  --color-iris-gold-light: var(--gold-light);
+  --color-iris-teal:       var(--teal);
+  --color-iris-teal-light: var(--teal-light);
+}
+
+/* ─────────────────────────────────────────────
+   BASE
+   ───────────────────────────────────────────── */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #1E2D45 transparent;
+  scrollbar-color: var(--bg-border) transparent;
 }
 
 body {
-  background-color: #0B1426;
-  color: #E2E8F0;
+  background-color: var(--bg);
+  color: var(--text-primary);
   font-family: 'Inter', system-ui, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-.leaflet-container {
+/* ─────────────────────────────────────────────
+   LEAFLET — dark mode overrides
+   ───────────────────────────────────────────── */
+.dark .leaflet-container {
   background: #0B1426 !important;
 }
-
 .leaflet-popup-content-wrapper {
-  background: #111B30 !important;
-  color: #E2E8F0 !important;
+  background: var(--bg-card) !important;
+  color: var(--text-primary) !important;
   border-radius: 12px !important;
-  border: 1px solid #1E2D45 !important;
+  border: 1px solid var(--bg-border) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18) !important;
 }
-
 .leaflet-popup-tip {
-  background: #111B30 !important;
+  background: var(--bg-card) !important;
 }
-
 .leaflet-popup-close-button {
-  color: #94A3B8 !important;
+  color: var(--text-muted) !important;
 }
-
 .leaflet-control-zoom a {
-  background: #111B30 !important;
-  color: #E2E8F0 !important;
-  border-color: #1E2D45 !important;
+  background: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--bg-border) !important;
 }
-
 .leaflet-control-attribution {
-  background: rgba(11, 20, 38, 0.8) !important;
-  color: #94A3B8 !important;
+  background: color-mix(in srgb, var(--bg) 80%, transparent) !important;
+  color: var(--text-muted) !important;
 }
-
 .leaflet-control-attribution a {
-  color: #94A3B8 !important;
+  color: var(--text-muted) !important;
 }
 
-@keyframes pulse-ring {
-  0% { transform: scale(0.5); opacity: 1; }
-  100% { transform: scale(2.5); opacity: 0; }
+/* ─────────────────────────────────────────────
+   ANIMATIONS
+   ───────────────────────────────────────────── */
+@keyframes ping {
+  75%, 100% { transform: translate(-50%,-50%) scale(2); opacity: 0; }
 }
 
-.marker-pulse {
-  animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
