@@ -41,23 +41,26 @@ export default function AIChat() {
         body: JSON.stringify({ message: text.trim(), history: messages }),
       });
 
-      if (!res.ok) {
-        throw new Error("Error en la respuesta del servidor");
-      }
-
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          data?.error || data?.details || "Error en la respuesta del servidor",
+        );
+      }
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: data.response },
       ]);
       if (data.mode) setMode(data.mode);
-    } catch {
+    } catch (error) {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
           content:
-            "Lo siento, hubo un error al procesar tu consulta. Verificá que la API key de OpenAI esté configurada correctamente.",
+            error instanceof Error
+              ? error.message
+              : "Lo siento, hubo un error al procesar tu consulta.",
         },
       ]);
     } finally {
