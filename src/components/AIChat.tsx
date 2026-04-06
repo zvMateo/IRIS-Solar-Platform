@@ -15,6 +15,23 @@ const SUGGESTED_QUESTIONS = [
   "¿Qué instalaciones necesitan mantenimiento pronto?",
 ];
 
+const SESSION_STORAGE_KEY = "iris-chat-session-id";
+
+function getOrCreateSessionId(): string {
+  if (typeof window === "undefined") return `web-${Date.now()}`;
+
+  const existing = window.localStorage.getItem(SESSION_STORAGE_KEY);
+  if (existing) return existing;
+
+  const generated =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? `web-${crypto.randomUUID()}`
+      : `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  window.localStorage.setItem(SESSION_STORAGE_KEY, generated);
+  return generated;
+}
+
 export default function AIChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -38,7 +55,11 @@ export default function AIChat() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text.trim(), history: messages }),
+        body: JSON.stringify({
+          message: text.trim(),
+          history: messages,
+          sessionId: getOrCreateSessionId(),
+        }),
       });
 
       const data = await res.json();

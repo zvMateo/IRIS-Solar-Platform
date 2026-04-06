@@ -50,13 +50,20 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     message = typeof body.message === "string" ? body.message : "";
     history = Array.isArray(body.history) ? body.history : [];
+    const sessionId =
+      typeof body.sessionId === "string" && body.sessionId.trim()
+        ? body.sessionId.trim()
+        : `web-${Date.now()}`;
+    const context = buildContextPayload();
 
     const payload = {
       message,
+      query: message,
       chatInput: message,
       input: message,
       history,
-      context: buildContextPayload(),
+      sessionId,
+      context,
       timestamp: new Date().toISOString(),
     };
 
@@ -75,8 +82,19 @@ export async function POST(req: NextRequest) {
 
     const data = await response.json();
 
+    const outputText =
+      typeof data.output === "string"
+        ? data.output
+        : typeof data.output === "object" && data.output !== null
+          ? (data.output as { text?: unknown }).text
+          : undefined;
+
     const reply = (
-      data.response || data.reply || data.message || data.output || data.text
+      data.response ||
+      data.reply ||
+      data.message ||
+      data.text ||
+      outputText
     )?.toString();
 
     if (!reply) {
