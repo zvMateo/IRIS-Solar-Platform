@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { installations, getAllAlerts, getKPIs } from "@/data/mockData";
+// import { installations, getAllAlerts, getKPIs } from "@/data/mockData";
 
 const N8N_WEBHOOK_ID = "fd961bb8-31a4-4cf8-a820-00de3e595a36";
 
@@ -14,33 +14,33 @@ const N8N_TEST_URL =
 const WEBHOOK_URL =
   process.env.NODE_ENV === "production" ? N8N_WEBHOOK_URL : N8N_TEST_URL;
 
-function buildContextPayload() {
-  return {
-    installations: installations.map((inst) => ({
-      id: inst.id,
-      name: inst.name,
-      location: inst.location,
-      powerKwp: inst.powerKwp,
-      panelCount: inst.panelCount,
-      panelBrand: inst.panelBrand,
-      inverterBrand: inst.inverterBrand,
-      inverterModel: inst.inverterModel,
-      status: inst.status,
-      generationTodayKwh: inst.generationTodayKwh,
-      generationMonthKwh: inst.generationMonthKwh,
-      energyInjectedKwh: inst.energyInjectedKwh,
-      energyConsumedKwh: inst.energyConsumedKwh,
-      clientType: inst.clientType,
-      nextMaintenance: inst.nextMaintenance,
-      alerts: inst.alerts.map((a) => ({
-        severity: a.severity,
-        message: a.message,
-      })),
-    })),
-    kpis: getKPIs(),
-    totalAlerts: getAllAlerts().length,
-  };
-}
+// function buildContextPayload() {
+//   return {
+//     installations: installations.map((inst) => ({
+//       id: inst.id,
+//       name: inst.name,
+//       location: inst.location,
+//       powerKwp: inst.powerKwp,
+//       panelCount: inst.panelCount,
+//       panelBrand: inst.panelBrand,
+//       inverterBrand: inst.inverterBrand,
+//       inverterModel: inst.inverterModel,
+//       status: inst.status,
+//       generationTodayKwh: inst.generationTodayKwh,
+//       generationMonthKwh: inst.generationMonthKwh,
+//       energyInjectedKwh: inst.energyInjectedKwh,
+//       energyConsumedKwh: inst.energyConsumedKwh,
+//       clientType: inst.clientType,
+//       nextMaintenance: inst.nextMaintenance,
+//       alerts: inst.alerts.map((a) => ({
+//         severity: a.severity,
+//         message: a.message,
+//       })),
+//     })),
+//     kpis: getKPIs(),
+//     totalAlerts: getAllAlerts().length,
+//   };
+// }
 
 export async function POST(req: NextRequest) {
   let message = "";
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       typeof body.sessionId === "string" && body.sessionId.trim()
         ? body.sessionId.trim()
         : `web-${Date.now()}`;
-    const context = buildContextPayload();
+    // const context = buildContextPayload();
 
     const payload = {
       message,
@@ -63,7 +63,6 @@ export async function POST(req: NextRequest) {
       input: message,
       history,
       sessionId,
-      context,
       timestamp: new Date().toISOString(),
     };
 
