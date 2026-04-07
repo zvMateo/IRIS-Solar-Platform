@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Share2,
   Check,
+  X,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
@@ -109,19 +110,12 @@ export default function AIChat() {
     return [header, ...lines].join("\n\n");
   };
 
-  const shareChat = async () => {
+  const copyChat = async () => {
     if (messages.length === 0) return;
     const text = buildShareText();
 
     try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "Conversación IRIS IA",
-          text,
-        });
-      } else {
-        await navigator.clipboard.writeText(text);
-      }
+      await navigator.clipboard.writeText(text);
       setShareState("ok");
     } catch {
       setShareState("error");
@@ -157,13 +151,15 @@ export default function AIChat() {
         <div className="flex items-center gap-1.5">
           {messages.length > 0 && (
             <button
-              onClick={shareChat}
-              title="Compartir conversación"
+              onClick={copyChat}
+              title="Copiar conversación"
               className="p-1.5 rounded-lg text-iris-text-muted hover:text-iris-text hover:bg-iris-dark transition-all cursor-pointer"
-              aria-label="Compartir conversación"
+              aria-label="Copiar conversación"
             >
               {shareState === "ok" ? (
                 <Check className="w-3.5 h-3.5 text-emerald-400" />
+              ) : shareState === "error" ? (
+                <X className="w-3.5 h-3.5 text-red-400" />
               ) : (
                 <Share2 className="w-3.5 h-3.5" />
               )}
@@ -280,6 +276,16 @@ export default function AIChat() {
 
       {/* ── Input ── */}
       <div className="p-3 border-t border-iris-border flex-shrink-0">
+        {shareState === "ok" && (
+          <p className="text-[10px] text-emerald-400 mb-2">
+            Conversación copiada al portapapeles.
+          </p>
+        )}
+        {shareState === "error" && (
+          <p className="text-[10px] text-red-400 mb-2">
+            No se pudo copiar la conversación.
+          </p>
+        )}
         {/* Hint de teclado */}
         <div className="flex gap-2">
           <input
