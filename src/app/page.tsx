@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import {
-  SolarPanel, Sun, BarChart3, MessageSquare, Wrench,
-  Maximize2, Minimize2, RefreshCw, Wifi, ChevronRight,
-  Zap, TrendingUp
+  SolarPanel, Sun, BarChart3, Wrench,
+  Maximize2, Minimize2, ChevronRight,
+  Zap, TrendingUp, MessageSquare, X
 } from "lucide-react";
 import KPICards from "@/components/KPICards";
 import SolarCharts from "@/components/SolarCharts";
@@ -19,8 +19,9 @@ import { useLiveData } from "@/hooks/useLiveData";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const SolarMap = dynamic(() => import("@/components/SolarMap"), { ssr: false });
+const CHAT_OPEN_STORAGE_KEY = "iris-chat-open";
 
-type Tab = "map" | "dashboard" | "chat" | "equipment";
+type Tab = "map" | "dashboard" | "equipment";
 
 // ── Pantalla de bienvenida ──────────────────────────────────────────
 function SplashScreen({ onEnter }: { onEnter: () => void }) {
@@ -137,6 +138,7 @@ export default function Home() {
   const [selectedInstallation, setSelectedInstallation] = useState<string | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [presentationMode, setPresentationMode] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [filters, setFilters] = useState<{
     status: InstallationStatus | "all";
     minPower: number;
@@ -145,10 +147,20 @@ export default function Home() {
 
   const live = useLiveData(5000);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem(CHAT_OPEN_STORAGE_KEY);
+    if (raw === "true") setChatOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(CHAT_OPEN_STORAGE_KEY, chatOpen ? "true" : "false");
+  }, [chatOpen]);
+
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "map", label: "Mapa Solar", icon: <SolarPanel className="w-4 h-4" /> },
     { id: "dashboard", label: "Dashboard", icon: <BarChart3 className="w-4 h-4" /> },
-    { id: "chat", label: "Chat IA", icon: <MessageSquare className="w-4 h-4" /> },
     { id: "equipment", label: "Equipos", icon: <Wrench className="w-4 h-4" /> },
   ];
 
@@ -256,8 +268,8 @@ export default function Home() {
 
       {/* Main */}
       <main className={`max-w-[1920px] mx-auto p-4 ${presentationMode ? "h-[calc(100vh-56px)] overflow-hidden" : ""}`}>
-        {/* KPI Cards */}
-        {!presentationMode && (
+        {/* KPI Cards (solo Dashboard) */}
+        {!presentationMode && activeTab === "dashboard" && (
           <div className="mb-4">
             <KPICards
               onStatusFilter={(status) => { setFilters((f) => ({ ...f, status })); setActiveTab("map"); }}
@@ -374,17 +386,6 @@ export default function Home() {
           </div>
         )}
 
-        {activeTab === "chat" && (
-          <div key="chat" className="tab-enter grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2 h-[calc(100vh-200px)] min-h-[500px]">
-              <AIChat />
-            </div>
-            <div className="lg:col-span-1">
-              <AlertsList />
-            </div>
-          </div>
-        )}
-
         {activeTab === "equipment" && (
           <div key="equipment" className="tab-enter">
             <EquipmentTable />
@@ -408,6 +409,23 @@ export default function Home() {
           </div>
         </footer>
       )}
+
+      {/* Chat flotante */}
+      <div className="fixed bottom-5 right-5 z-[70] flex flex-col items-end gap-3">
+        {chatOpen && (
+          <div className="w-[360px] max-w-[calc(100vw-24px)] h-[560px] max-h-[calc(100vh-120px)] shadow-2xl shadow-black/40">
+            <AIChat />
+          </div>
+        )}
+        <button
+          onClick={() => setChatOpen((prev) => !prev)}
+          className="w-14 h-14 rounded-full bg-iris-gold text-iris-dark shadow-lg shadow-iris-gold/30 hover:bg-amber-400 transition-all flex items-center justify-center"
+          title={chatOpen ? "Cerrar chat" : "Abrir chat IA"}
+          aria-label={chatOpen ? "Cerrar chat" : "Abrir chat IA"}
+        >
+          {chatOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
+        </button>
+      </div>
     </div>
   );
 }

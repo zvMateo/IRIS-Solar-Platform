@@ -20,6 +20,8 @@ interface Message {
 }
 
 const SESSION_STORAGE_KEY = "iris-chat-session-id";
+const CHAT_MESSAGES_STORAGE_KEY = "iris-chat-messages";
+const CHAT_MODE_STORAGE_KEY = "iris-chat-mode";
 
 function getOrCreateSessionId(): string {
   if (typeof window === "undefined") return `web-${Date.now()}`;
@@ -49,8 +51,49 @@ export default function AIChat() {
   messagesRef.current = messages;
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const rawMessages = window.localStorage.getItem(CHAT_MESSAGES_STORAGE_KEY);
+    if (rawMessages) {
+      try {
+        const parsed = JSON.parse(rawMessages);
+        if (Array.isArray(parsed)) {
+          const safeMessages = parsed.filter(
+            (m): m is Message =>
+              typeof m === "object" &&
+              m !== null &&
+              (m.role === "user" || m.role === "assistant") &&
+              typeof m.content === "string",
+          );
+          setMessages(safeMessages);
+        }
+      } catch {
+        window.localStorage.removeItem(CHAT_MESSAGES_STORAGE_KEY);
+      }
+    }
+
+    const rawMode = window.localStorage.getItem(CHAT_MODE_STORAGE_KEY);
+    if (rawMode === "n8n") {
+      setMode("n8n");
+    }
+  }, []);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(CHAT_MESSAGES_STORAGE_KEY, JSON.stringify(messages));
+  }, [messages]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (mode) {
+      window.localStorage.setItem(CHAT_MODE_STORAGE_KEY, mode);
+    } else {
+      window.localStorage.removeItem(CHAT_MODE_STORAGE_KEY);
+    }
+  }, [mode]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
