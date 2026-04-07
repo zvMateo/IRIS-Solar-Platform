@@ -3,9 +3,17 @@
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import {
-  SolarPanel, Sun, BarChart3, Wrench,
-  Maximize2, Minimize2, ChevronRight,
-  Zap, TrendingUp, MessageSquare, X
+  SolarPanel,
+  Sun,
+  BarChart3,
+  Wrench,
+  Maximize2,
+  Minimize2,
+  ChevronRight,
+  Zap,
+  TrendingUp,
+  BotMessageSquare,
+  X,
 } from "lucide-react";
 import KPICards from "@/components/KPICards";
 import SolarCharts from "@/components/SolarCharts";
@@ -31,16 +39,22 @@ function SplashScreen({ onEnter }: { onEnter: () => void }) {
 
   useEffect(() => {
     const steps = [
-      { delay: 200,  pct: 20,  msg: "Cargando instalaciones..." },
-      { delay: 600,  pct: 50,  msg: "Conectando datos en tiempo real..." },
-      { delay: 1100, pct: 80,  msg: "Verificando alertas del sistema..." },
+      { delay: 200, pct: 20, msg: "Cargando instalaciones..." },
+      { delay: 600, pct: 50, msg: "Conectando datos en tiempo real..." },
+      { delay: 1100, pct: 80, msg: "Verificando alertas del sistema..." },
       { delay: 1600, pct: 100, msg: "Plataforma lista ✓" },
     ];
     const timers = steps.map(({ delay, pct, msg }) =>
-      setTimeout(() => { setProgress(pct); setStatusMessage(msg); }, delay)
+      setTimeout(() => {
+        setProgress(pct);
+        setStatusMessage(msg);
+      }, delay),
     );
     const done = setTimeout(() => setLoading(false), 1900);
-    return () => { timers.forEach(clearTimeout); clearTimeout(done); };
+    return () => {
+      timers.forEach(clearTimeout);
+      clearTimeout(done);
+    };
   }, []);
 
   return (
@@ -59,7 +73,8 @@ function SplashScreen({ onEnter }: { onEnter: () => void }) {
               width: `${200 + i * 120}px`,
               height: `${200 + i * 120}px`,
               border: "1px solid #F59E0B",
-              top: "50%", left: "50%",
+              top: "50%",
+              left: "50%",
               transform: "translate(-50%, -50%)",
               animation: `ping ${2 + i * 0.4}s cubic-bezier(0,0,0.2,1) infinite`,
               animationDelay: `${i * 0.3}s`,
@@ -78,7 +93,9 @@ function SplashScreen({ onEnter }: { onEnter: () => void }) {
             <h1 className="text-4xl font-black text-iris-text tracking-tight">
               IRIS <span className="text-iris-gold">Solar</span>
             </h1>
-            <p className="text-base text-iris-teal font-medium tracking-widest uppercase">Platform</p>
+            <p className="text-base text-iris-teal font-medium tracking-widest uppercase">
+              Platform
+            </p>
           </div>
         </div>
 
@@ -93,7 +110,10 @@ function SplashScreen({ onEnter }: { onEnter: () => void }) {
             { value: "+9 MW", label: "Instalados" },
             { value: "+270", label: "Clientes" },
           ].map(({ value, label }) => (
-            <div key={label} className="bg-iris-card/60 border border-iris-border rounded-xl p-4 text-center">
+            <div
+              key={label}
+              className="bg-iris-card/60 border border-iris-border rounded-xl p-4 text-center"
+            >
               <p className="text-2xl font-black text-iris-gold">{value}</p>
               <p className="text-xs text-iris-text-muted mt-1">{label}</p>
             </div>
@@ -109,7 +129,9 @@ function SplashScreen({ onEnter }: { onEnter: () => void }) {
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className="text-[11px] text-iris-text-muted h-4 transition-all duration-300">{statusMessage}</p>
+            <p className="text-[11px] text-iris-text-muted h-4 transition-all duration-300">
+              {statusMessage}
+            </p>
           </div>
         ) : (
           <button
@@ -135,10 +157,15 @@ function SplashScreen({ onEnter }: { onEnter: () => void }) {
 export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("map");
-  const [selectedInstallation, setSelectedInstallation] = useState<string | null>(null);
+  const [selectedInstallation, setSelectedInstallation] = useState<
+    string | null
+  >(null);
   const [showDetail, setShowDetail] = useState(false);
   const [presentationMode, setPresentationMode] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(CHAT_OPEN_STORAGE_KEY) === "true";
+  });
   const [filters, setFilters] = useState<{
     status: InstallationStatus | "all";
     minPower: number;
@@ -149,38 +176,52 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const raw = window.localStorage.getItem(CHAT_OPEN_STORAGE_KEY);
-    if (raw === "true") setChatOpen(true);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(CHAT_OPEN_STORAGE_KEY, chatOpen ? "true" : "false");
+    window.localStorage.setItem(
+      CHAT_OPEN_STORAGE_KEY,
+      chatOpen ? "true" : "false",
+    );
   }, [chatOpen]);
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "map", label: "Mapa Solar", icon: <SolarPanel className="w-4 h-4" /> },
-    { id: "dashboard", label: "Dashboard", icon: <BarChart3 className="w-4 h-4" /> },
+    {
+      id: "map",
+      label: "Mapa Solar",
+      icon: <SolarPanel className="w-4 h-4" />,
+    },
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      icon: <BarChart3 className="w-4 h-4" />,
+    },
     { id: "equipment", label: "Equipos", icon: <Wrench className="w-4 h-4" /> },
   ];
 
   const clientTypeLabels: Record<string, string> = {
-    agro: "Agro", industria: "Industria", comercio: "Comercio",
-    cooperativa: "Cooperativa", comunidad: "Comunidad Solar", inversor: "Inversor Particular",
+    agro: "Agro",
+    industria: "Industria",
+    comercio: "Comercio",
+    cooperativa: "Cooperativa",
+    comunidad: "Comunidad Solar",
+    inversor: "Inversor Particular",
   };
   const clientTypeColors: Record<string, string> = {
-    agro: "bg-green-500", industria: "bg-blue-500", comercio: "bg-purple-500",
-    cooperativa: "bg-amber-500", comunidad: "bg-teal-500", inversor: "bg-pink-500",
+    agro: "bg-green-500",
+    industria: "bg-blue-500",
+    comercio: "bg-purple-500",
+    cooperativa: "bg-amber-500",
+    comunidad: "bg-teal-500",
+    inversor: "bg-pink-500",
   };
 
   if (showSplash) return <SplashScreen onEnter={() => setShowSplash(false)} />;
 
   return (
-    <div className={`min-h-screen bg-iris-dark ${presentationMode ? "overflow-hidden" : ""}`}>
+    <div
+      className={`min-h-screen bg-iris-dark ${presentationMode ? "overflow-hidden" : ""}`}
+    >
       {/* Header */}
       <header className="bg-iris-card/90 backdrop-blur border-b border-iris-border sticky top-0 z-50">
         <div className="max-w-[1920px] mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
-
           {/* Logo */}
           <div className="flex items-center gap-3 flex-shrink-0">
             <div className="p-2 rounded-xl bg-gradient-to-br from-iris-gold to-amber-600 shadow-md shadow-iris-gold/20">
@@ -190,7 +231,9 @@ export default function Home() {
               <h1 className="text-sm font-black text-iris-text tracking-tight leading-none">
                 IRIS <span className="text-iris-gold">Solar</span> Platform
               </h1>
-              <p className="text-[9px] text-iris-text-muted tracking-wider mt-0.5">IRIS ENERGÍA — Córdoba, Argentina</p>
+              <p className="text-[9px] text-iris-text-muted tracking-wider mt-0.5">
+                IRIS ENERGÍA — Córdoba, Argentina
+              </p>
             </div>
           </div>
 
@@ -218,7 +261,9 @@ export default function Home() {
             {activeTab === "dashboard" && (
               <div className="hidden md:flex items-center gap-2 bg-iris-dark border border-iris-border rounded-lg px-3 py-1.5">
                 <TrendingUp className="w-3.5 h-3.5 text-iris-teal" />
-                <span className="text-[10px] text-iris-text-muted">Activo ahora:</span>
+                <span className="text-[10px] text-iris-text-muted">
+                  Activo ahora:
+                </span>
                 <span className="text-xs font-bold text-iris-teal">
                   {live.activePower.toLocaleString("es-AR")} kW
                 </span>
@@ -232,7 +277,11 @@ export default function Home() {
                 <div className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-75" />
               </div>
               <span className="text-[10px] text-iris-text-muted hidden sm:inline">
-                {live.updatedAt.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                {live.updatedAt.toLocaleTimeString("es-AR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}
               </span>
             </div>
 
@@ -242,11 +291,21 @@ export default function Home() {
             {/* Modo presentación */}
             <button
               onClick={() => setPresentationMode(!presentationMode)}
-              title={presentationMode ? "Salir de presentación" : "Modo presentación"}
-              aria-label={presentationMode ? "Salir de modo presentación" : "Activar modo presentación"}
+              title={
+                presentationMode ? "Salir de presentación" : "Modo presentación"
+              }
+              aria-label={
+                presentationMode
+                  ? "Salir de modo presentación"
+                  : "Activar modo presentación"
+              }
               className="p-2 rounded-lg border border-iris-border text-iris-text-muted hover:text-iris-gold hover:border-iris-gold/30 transition-all cursor-pointer"
             >
-              {presentationMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              {presentationMode ? (
+                <Minimize2 className="w-4 h-4" />
+              ) : (
+                <Maximize2 className="w-4 h-4" />
+              )}
             </button>
           </div>
         </div>
@@ -258,7 +317,9 @@ export default function Home() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 flex items-center justify-center gap-1 py-2 text-xs transition-all ${
-                activeTab === tab.id ? "text-iris-gold border-b-2 border-iris-gold" : "text-iris-text-muted"
+                activeTab === tab.id
+                  ? "text-iris-gold border-b-2 border-iris-gold"
+                  : "text-iris-text-muted"
               }`}
             >
               {tab.icon}
@@ -269,12 +330,17 @@ export default function Home() {
       </header>
 
       {/* Main */}
-      <main className={`max-w-[1920px] mx-auto p-4 ${presentationMode ? "h-[calc(100vh-56px)] overflow-hidden" : ""}`}>
+      <main
+        className={`max-w-[1920px] mx-auto p-4 ${presentationMode ? "h-[calc(100vh-56px)] overflow-hidden" : ""}`}
+      >
         {/* KPI Cards (solo Dashboard) */}
         {!presentationMode && activeTab === "dashboard" && (
           <div className="mb-4">
             <KPICards
-              onStatusFilter={(status) => { setFilters((f) => ({ ...f, status })); setActiveTab("map"); }}
+              onStatusFilter={(status) => {
+                setFilters((f) => ({ ...f, status }));
+                setActiveTab("map");
+              }}
               currentFilter={filters.status}
             />
           </div>
@@ -284,10 +350,34 @@ export default function Home() {
         {presentationMode && activeTab === "dashboard" && (
           <div className="mb-3 grid grid-cols-4 gap-3">
             {[
-              { label: "kWh Generados Hoy", value: live.totalTodayKwh.toLocaleString("es-AR"), unit: "kWh", color: "text-iris-gold", accent: true },
-              { label: "Potencia Activa", value: live.activePower.toLocaleString("es-AR"), unit: "kW", color: "text-iris-teal", accent: false },
-              { label: "CO₂ Evitado Hoy", value: live.co2Avoided.toLocaleString("es-AR"), unit: "kg CO₂", color: "text-emerald-400", accent: false },
-              { label: "Ahorro del Día", value: `$${live.moneySaved.toLocaleString("es-AR")}`, unit: "ARS", color: "text-iris-gold-light", accent: false },
+              {
+                label: "kWh Generados Hoy",
+                value: live.totalTodayKwh.toLocaleString("es-AR"),
+                unit: "kWh",
+                color: "text-iris-gold",
+                accent: true,
+              },
+              {
+                label: "Potencia Activa",
+                value: live.activePower.toLocaleString("es-AR"),
+                unit: "kW",
+                color: "text-iris-teal",
+                accent: false,
+              },
+              {
+                label: "CO₂ Evitado Hoy",
+                value: live.co2Avoided.toLocaleString("es-AR"),
+                unit: "kg CO₂",
+                color: "text-emerald-400",
+                accent: false,
+              },
+              {
+                label: "Ahorro del Día",
+                value: `$${live.moneySaved.toLocaleString("es-AR")}`,
+                unit: "ARS",
+                color: "text-iris-gold-light",
+                accent: false,
+              },
             ].map(({ label, value, unit, color, accent }) => (
               <div
                 key={label}
@@ -297,8 +387,12 @@ export default function Home() {
                     : "border-iris-border"
                 }`}
               >
-                <p className="text-[11px] text-iris-text-muted uppercase tracking-widest mb-1">{label}</p>
-                <p className={`text-3xl font-black tabular-nums ${color}`}>{value}</p>
+                <p className="text-[11px] text-iris-text-muted uppercase tracking-widest mb-1">
+                  {label}
+                </p>
+                <p className={`text-3xl font-black tabular-nums ${color}`}>
+                  {value}
+                </p>
                 <p className="text-xs text-iris-text-muted mt-1">{unit}</p>
               </div>
             ))}
@@ -307,13 +401,29 @@ export default function Home() {
 
         {/* Contenido de tabs — con animación fade-slide en cada cambio */}
         {activeTab === "map" && (
-          <div key="map" className={`tab-enter grid grid-cols-1 xl:grid-cols-4 gap-4 ${presentationMode ? "h-[calc(100%-60px)]" : ""}`}>
-            <div className={`xl:col-span-3 space-y-3 ${presentationMode ? "flex flex-col h-full" : ""}`}>
-              {!presentationMode && <MapFilters filters={filters} onFilterChange={setFilters} />}
-              <div className={presentationMode ? "flex-1" : "h-[calc(100vh-320px)] min-h-[500px]"}>
+          <div
+            key="map"
+            className={`tab-enter grid grid-cols-1 xl:grid-cols-4 gap-4 ${presentationMode ? "h-[calc(100%-60px)]" : ""}`}
+          >
+            <div
+              className={`xl:col-span-3 space-y-3 ${presentationMode ? "flex flex-col h-full" : ""}`}
+            >
+              {!presentationMode && (
+                <MapFilters filters={filters} onFilterChange={setFilters} />
+              )}
+              <div
+                className={
+                  presentationMode
+                    ? "flex-1"
+                    : "h-[calc(100vh-320px)] min-h-[500px]"
+                }
+              >
                 <SolarMap
                   selectedInstallation={selectedInstallation}
-                  onSelectInstallation={(id) => { setSelectedInstallation(id); setShowDetail(!!id); }}
+                  onSelectInstallation={(id) => {
+                    setSelectedInstallation(id);
+                    setShowDetail(!!id);
+                  }}
                   filters={filters}
                 />
               </div>
@@ -322,7 +432,10 @@ export default function Home() {
               {showDetail && selectedInstallation ? (
                 <InstallationDetail
                   installationId={selectedInstallation}
-                  onClose={() => { setShowDetail(false); setSelectedInstallation(null); }}
+                  onClose={() => {
+                    setShowDetail(false);
+                    setSelectedInstallation(null);
+                  }}
                 />
               ) : (
                 <AlertsList />
@@ -337,19 +450,44 @@ export default function Home() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <AlertsList />
               <div className="bg-iris-card border border-iris-border rounded-xl p-4">
-                <h3 className="text-sm font-semibold text-iris-text mb-3">Portfolio por Segmento</h3>
+                <h3 className="text-sm font-semibold text-iris-text mb-3">
+                  Portfolio por Segmento
+                </h3>
                 <div className="space-y-2">
-                  {(["agro", "industria", "comercio", "cooperativa", "comunidad", "inversor"] as const).map((type) => {
-                    const count = installations.filter((i) => i.clientType === type).length;
-                    const totalKwp = installations.filter((i) => i.clientType === type).reduce((s, i) => s + i.powerKwp, 0);
-                    const pct = Math.round((count / installations.length) * 100);
+                  {(
+                    [
+                      "agro",
+                      "industria",
+                      "comercio",
+                      "cooperativa",
+                      "comunidad",
+                      "inversor",
+                    ] as const
+                  ).map((type) => {
+                    const count = installations.filter(
+                      (i) => i.clientType === type,
+                    ).length;
+                    const totalKwp = installations
+                      .filter((i) => i.clientType === type)
+                      .reduce((s, i) => s + i.powerKwp, 0);
+                    const pct = Math.round(
+                      (count / installations.length) * 100,
+                    );
                     return (
                       <div key={type}>
                         <div className="flex items-center gap-2 mb-1">
-                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${clientTypeColors[type]}`} />
-                          <span className="text-xs text-iris-text-muted flex-1">{clientTypeLabels[type]}</span>
-                          <span className="text-xs text-iris-text font-semibold">{count} inst.</span>
-                          <span className="text-xs text-iris-text-muted">{totalKwp} kWp</span>
+                          <div
+                            className={`w-2 h-2 rounded-full flex-shrink-0 ${clientTypeColors[type]}`}
+                          />
+                          <span className="text-xs text-iris-text-muted flex-1">
+                            {clientTypeLabels[type]}
+                          </span>
+                          <span className="text-xs text-iris-text font-semibold">
+                            {count} inst.
+                          </span>
+                          <span className="text-xs text-iris-text-muted">
+                            {totalKwp} kWp
+                          </span>
                         </div>
                         <div className="h-1 bg-iris-dark rounded-full overflow-hidden">
                           <div
@@ -362,16 +500,28 @@ export default function Home() {
                   })}
                 </div>
                 <div className="mt-4 pt-4 border-t border-iris-border">
-                  <h4 className="text-xs font-semibold text-iris-text mb-3">Fabricantes</h4>
+                  <h4 className="text-xs font-semibold text-iris-text mb-3">
+                    Fabricantes
+                  </h4>
                   {["Sungrow", "Huawei"].map((brand) => {
-                    const count = installations.filter((i) => i.inverterBrand === brand).length;
-                    const pct = Math.round((count / installations.length) * 100);
+                    const count = installations.filter(
+                      (i) => i.inverterBrand === brand,
+                    ).length;
+                    const pct = Math.round(
+                      (count / installations.length) * 100,
+                    );
                     return (
                       <div key={brand} className="mb-2">
                         <div className="flex items-center gap-2 mb-1">
-                          <div className={`w-2 h-2 rounded-full ${brand === "Sungrow" ? "bg-iris-gold" : "bg-iris-teal"}`} />
-                          <span className="text-xs text-iris-text-muted flex-1">{brand}</span>
-                          <span className="text-xs text-iris-text font-semibold">{pct}%</span>
+                          <div
+                            className={`w-2 h-2 rounded-full ${brand === "Sungrow" ? "bg-iris-gold" : "bg-iris-teal"}`}
+                          />
+                          <span className="text-xs text-iris-text-muted flex-1">
+                            {brand}
+                          </span>
+                          <span className="text-xs text-iris-text font-semibold">
+                            {pct}%
+                          </span>
                         </div>
                         <div className="h-1 bg-iris-dark rounded-full overflow-hidden">
                           <div
@@ -400,13 +550,20 @@ export default function Home() {
         <footer className="border-t border-iris-border mt-8 py-3">
           <div className="max-w-[1920px] mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
             <p className="text-[10px] text-iris-text-muted">
-              © 2026 IRIS Solar Platform — IRIS Energía | +310 instalaciones | +9 MW instalados | Córdoba, Argentina
+              © 2026 IRIS Solar Platform — IRIS Energía | +310 instalaciones |
+              +9 MW instalados | Córdoba, Argentina
             </p>
             <div className="flex items-center gap-3">
-              <span className="text-[10px] text-iris-text-muted">Partners oficiales:</span>
-              <span className="text-[10px] font-semibold text-iris-gold">Sungrow</span>
+              <span className="text-[10px] text-iris-text-muted">
+                Partners oficiales:
+              </span>
+              <span className="text-[10px] font-semibold text-iris-gold">
+                Sungrow
+              </span>
               <span className="text-iris-border">|</span>
-              <span className="text-[10px] font-semibold text-iris-teal">Jinko Solar</span>
+              <span className="text-[10px] font-semibold text-iris-teal">
+                Jinko Solar
+              </span>
             </div>
           </div>
         </footer>
@@ -425,7 +582,11 @@ export default function Home() {
           title={chatOpen ? "Cerrar chat" : "Abrir chat IA"}
           aria-label={chatOpen ? "Cerrar chat" : "Abrir chat IA"}
         >
-          {chatOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
+          {chatOpen ? (
+            <X className="w-6 h-6" />
+          ) : (
+            <BotMessageSquare className="w-6 h-6" />
+          )}
         </button>
       </div>
     </div>
