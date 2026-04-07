@@ -214,14 +214,16 @@ export default function Home() {
 
           {/* Right side: live indicator + potencia activa + presentacion */}
           <div className="flex items-center gap-3 flex-shrink-0">
-            {/* Potencia activa LIVE */}
-            <div className="hidden md:flex items-center gap-2 bg-iris-dark border border-iris-border rounded-lg px-3 py-1.5">
-              <TrendingUp className="w-3.5 h-3.5 text-iris-teal" />
-              <span className="text-[10px] text-iris-text-muted">Activo ahora:</span>
-              <span className="text-xs font-bold text-iris-teal">
-                {live.activePower.toLocaleString("es-AR")} kW
-              </span>
-            </div>
+            {/* Potencia activa LIVE (solo Dashboard) */}
+            {activeTab === "dashboard" && (
+              <div className="hidden md:flex items-center gap-2 bg-iris-dark border border-iris-border rounded-lg px-3 py-1.5">
+                <TrendingUp className="w-3.5 h-3.5 text-iris-teal" />
+                <span className="text-[10px] text-iris-text-muted">Activo ahora:</span>
+                <span className="text-xs font-bold text-iris-teal">
+                  {live.activePower.toLocaleString("es-AR")} kW
+                </span>
+              </div>
+            )}
 
             {/* Live dot + timestamp */}
             <div className="flex items-center gap-1.5">
@@ -278,8 +280,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* Live ticker en modo presentación — cards grandes, visibles desde lejos */}
-        {presentationMode && (
+        {/* Live ticker en modo presentación (solo Dashboard) */}
+        {presentationMode && activeTab === "dashboard" && (
           <div className="mb-3 grid grid-cols-4 gap-3">
             {[
               { label: "kWh Generados Hoy", value: live.totalTodayKwh.toLocaleString("es-AR"), unit: "kWh", color: "text-iris-gold", accent: true },
