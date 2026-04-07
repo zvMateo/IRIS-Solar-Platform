@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, User, Loader2, Sparkles, RotateCcw, Play } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Send, Bot, User, Loader2, Sparkles, RotateCcw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 interface Message {
@@ -9,19 +9,28 @@ interface Message {
   content: string;
 }
 
-const DEMO_QUESTIONS = [
-  { label: "📊 Resumen ejecutivo", q: "Dame un resumen ejecutivo del estado actual de todas las instalaciones" },
-  { label: "⚡ Top generadores", q: "¿Cuáles son las 3 instalaciones que más generaron este mes?" },
-  { label: "🚨 Alertas críticas", q: "¿Qué instalaciones tienen alertas críticas y qué acciones recomiendas?" },
-  { label: "🌿 Impacto ambiental", q: "Con la generación actual, ¿cuánto CO₂ evitamos y cuánto ahorramos este año?" },
-];
+const SESSION_STORAGE_KEY = "iris-chat-session-id";
+
+function getOrCreateSessionId(): string {
+  if (typeof window === "undefined") return `web-${Date.now()}`;
+
+  const existing = window.localStorage.getItem(SESSION_STORAGE_KEY);
+  if (existing) return existing;
+
+  const generated =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? `web-${crypto.randomUUID()}`
+      : `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  window.localStorage.setItem(SESSION_STORAGE_KEY, generated);
+  return generated;
+}
 
 export default function AIChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isDemoRunning, setIsDemoRunning] = useState(false);
-  const [mode, setMode] = useState<"openai" | "n8n" | "fallback" | null>(null);
+  const [mode, setMode] = useState<"n8n" | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // Ref de messages para usar en runDemoScript sin dep stale
@@ -32,10 +41,10 @@ export default function AIChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = useCallback(async (text: string, currentMessages?: Message[]) => {
+  const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
 
-    const historyToUse = currentMessages ?? messagesRef.current;
+    const historyToUse = messagesRef.current;
     const userMsg: Message = { role: "user", content: text.trim() };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
@@ -45,37 +54,34 @@ export default function AIChat() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text.trim(), history: historyToUse }),
+        body: JSON.stringify({
+          message: text.trim(),
+          history: historyToUse,
+          sessionId: getOrCreateSessionId(),
+        }),
       });
 
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          data?.error || data?.details || "Error en la respuesta del servidor",
+        );
+      }
       setMessages((prev) => [...prev, { role: "assistant", content: data.response }]);
       if (data.mode) setMode(data.mode);
       return data.response as string;
-    } catch {
+    } catch (error) {
       setMessages((prev) => [...prev, {
         role: "assistant",
-        content: "Lo siento, no pude conectarme en este momento. Intentá de nuevo.",
+        content:
+          error instanceof Error
+            ? error.message
+            : "Lo siento, no pude conectarme en este momento. Intentá de nuevo.",
       }]);
     } finally {
       setIsLoading(false);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [isLoading]);
-
-  // Demo script: envía 2 preguntas icónicas con delay entre ellas
-  const runDemoScript = async () => {
-    if (isDemoRunning || isLoading) return;
-    setIsDemoRunning(true);
-    clearChat();
-    // pequeño delay para que se vea el clear
-    await new Promise((r) => setTimeout(r, 300));
-    const scriptQuestions = [DEMO_QUESTIONS[0].q, DEMO_QUESTIONS[2].q];
-    for (const q of scriptQuestions) {
-      await sendMessage(q, messagesRef.current);
-      await new Promise((r) => setTimeout(r, 1200));
-    }
-    setIsDemoRunning(false);
   };
 
   const clearChat = () => {
@@ -84,11 +90,9 @@ export default function AIChat() {
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
-  const modeBadge = mode ? {
-    n8n: { label: "n8n Agent", color: "text-purple-400 bg-purple-500/10 border-purple-500/20" },
-    openai: { label: "GPT-4o", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
-    fallback: { label: "Smart Fallback", color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
-  }[mode] : null;
+  const modeBadge = mode
+    ? { label: "n8n Agent", color: "text-purple-400 bg-purple-500/10 border-purple-500/20" }
+    : null;
 
   return (
     <div className="bg-iris-card border border-iris-border rounded-xl flex flex-col h-full">
@@ -111,16 +115,6 @@ export default function AIChat() {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          {/* Demo script button */}
-          <button
-            onClick={runDemoScript}
-            disabled={isDemoRunning || isLoading}
-            title="Ejecutar demo automático"
-            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-iris-gold/10 text-iris-gold border border-iris-gold/20 hover:bg-iris-gold/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-          >
-            <Play className="w-2.5 h-2.5" />
-            {isDemoRunning ? "Demo..." : "Demo"}
-          </button>
           {messages.length > 0 && (
             <button
               onClick={clearChat}
@@ -151,18 +145,6 @@ export default function AIChat() {
             <p className="text-xs text-iris-text-muted mb-5 max-w-[240px]">
               Preguntame sobre generación, alertas, mantenimientos o cualquier dato del sistema.
             </p>
-            <div className="w-full space-y-2">
-              {DEMO_QUESTIONS.map(({ label, q }) => (
-                <button
-                  key={q}
-                  onClick={() => sendMessage(q)}
-                  className="w-full text-left px-3 py-2.5 rounded-lg border border-iris-border text-xs text-iris-text-muted hover:border-iris-gold/40 hover:bg-iris-gold/5 hover:text-iris-text transition-all duration-150 cursor-pointer group"
-                >
-                  <span className="text-iris-gold mr-2 group-hover:mr-3 transition-all">{label}</span>
-                  <span className="text-iris-text-muted/70">{q}</span>
-                </button>
-              ))}
-            </div>
           </div>
         )}
 
