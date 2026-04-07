@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2, Sparkles, RotateCcw } from "lucide-react";
+import {
+  Send,
+  Bot,
+  User,
+  Loader2,
+  Sparkles,
+  RotateCcw,
+  Share2,
+  Check,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 interface Message {
@@ -30,6 +39,7 @@ export default function AIChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [shareState, setShareState] = useState<"idle" | "ok" | "error">("idle");
   const [mode, setMode] = useState<"n8n" | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +100,36 @@ export default function AIChat() {
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
+  const buildShareText = () => {
+    const header = "Conversación - Asistente IRIS IA";
+    const lines = messages.map(
+      (msg) =>
+        `${msg.role === "user" ? "Usuario" : "Asistente"}: ${msg.content}`,
+    );
+    return [header, ...lines].join("\n\n");
+  };
+
+  const shareChat = async () => {
+    if (messages.length === 0) return;
+    const text = buildShareText();
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Conversación IRIS IA",
+          text,
+        });
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
+      setShareState("ok");
+    } catch {
+      setShareState("error");
+    } finally {
+      setTimeout(() => setShareState("idle"), 2000);
+    }
+  };
+
   const modeBadge = mode
     ? { label: "n8n Agent", color: "text-purple-400 bg-purple-500/10 border-purple-500/20" }
     : null;
@@ -115,6 +155,20 @@ export default function AIChat() {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
+          {messages.length > 0 && (
+            <button
+              onClick={shareChat}
+              title="Compartir conversación"
+              className="p-1.5 rounded-lg text-iris-text-muted hover:text-iris-text hover:bg-iris-dark transition-all cursor-pointer"
+              aria-label="Compartir conversación"
+            >
+              {shareState === "ok" ? (
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Share2 className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
           {messages.length > 0 && (
             <button
               onClick={clearChat}
